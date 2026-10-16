@@ -1,16 +1,45 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { SupabaseService } from '../common/supabase/supabase.service';
-import axios from 'axios';
+import * as admin from 'firebase-admin';
 
 @Injectable()
 export class NotificationsService {
   private readonly logger = new Logger(NotificationsService.name);
+  private firebaseApp: admin.app.App;
 
   constructor(
     private supabase: SupabaseService,
     private config: ConfigService,
-  ) {}
+  ) {
+    this.initFirebase();
+  }
+
+  private initFirebase() {
+    try {
+      // Avoid re-initializing if already done
+      if (admin.apps.length > 0) {
+        this.firebaseApp = admin.app();
+        return;
+      }
+
+      const privateKey = this.config
+        .get<string>('FIREBASE_PRIVATE_KEY')
+        ?.replace(/\\n/g, '\n'); // Vercel escapes newlines
+
+      this.firebaseApp = admin.initializeApp({
+        credential: admin.credential.cert({
+          projectId: this.config.get<string>('FIREBASE_PROJECT_ID'),
+          clientEmail: this.config.get<string>('FIREBASE_CLIENT_EMAIL'),
+          privateKey,
+        }),
+      });
+
+      this.logger.log('Firebase Admin initialized');
+    } catch (err) {
+      this.logger.error('Firebase init failed', err.message);
+    }
+  }
 
   // Send a push notification via Firebase FCM
   async sendPush(userId: string, dto: {
@@ -34,7 +63,7 @@ export class NotificationsService {
       .select()
       .single();
 
-    // Get user's FCM token from device sessions
+    // Get user's FCM tokens from device sessions
     const { data: sessions } = await this.supabase.admin
       .from('device_sessions')
       .select('fcm_token')
@@ -46,32 +75,18 @@ export class NotificationsService {
 
     const fcmTokens = sessions.map(s => s.fcm_token).filter(Boolean);
 
-    // Send FCM notification
-    const projectId = this.config.get('FIREBASE_PROJECT_ID');
-    const fcmUrl = `https://fcm.googleapis.com/v1/projects/${projectId}/messages:send`;
-
+    // Send via Firebase Admin SDK
     for (const token of fcmTokens) {
       try {
-        await axios.post(
-          fcmUrl,
-          {
-            message: {
-              token,
-              notification: { title: dto.title, body: dto.body },
-              data: dto.data ? Object.fromEntries(
-                Object.entries(dto.data).map(([k, v]) => [k, String(v)])
-              ) : {},
-              android: { priority: 'high' },
-              apns: { payload: { aps: { sound: 'default' } } },
-            },
-          },
-          {
-            headers: {
-              Authorization: `Bearer ${await this.getFcmAccessToken()}`,
-              'Content-Type': 'application/json',
-            },
-          },
-        );
+        await this.firebaseApp.messaging().send({
+          token,
+          notification: { title: dto.title, body: dto.body },
+          data: dto.data
+            ? Object.fromEntries(Object.entries(dto.data).map(([k, v]) => [k, String(v)]))
+            : {},
+          android: { priority: 'high' },
+          apns: { payload: { aps: { sound: 'default' } } },
+        });
       } catch (err) {
         this.logger.error(`FCM push failed for token ${token.slice(0, 10)}...`, err.message);
       }
@@ -86,8 +101,7 @@ export class NotificationsService {
     device_type: string;
     device_model?: string;
   }) {
-    // Upsert by FCM token
-    const { data, error } = await this.supabase.admin
+    const { data } = await this.supabase.admin
       .from('device_sessions')
       .upsert({
         user_id: userId,
@@ -103,9 +117,9 @@ export class NotificationsService {
     return data;
   }
 
-  // Get user's notifications (paginated)
+  // Get user's notifications
   async getMyNotifications(userId: string, limit = 20, offset = 0) {
-    const { data, error, count } = await this.supabase.admin
+    const { data, count } = await this.supabase.admin
       .from('notifications')
       .select('*', { count: 'exact' })
       .eq('user_id', userId)
@@ -126,14 +140,7 @@ export class NotificationsService {
     return { message: 'Marked as read.' };
   }
 
-  // Helper: get Firebase access token (simplified — use service account in production)
-  private async getFcmAccessToken(): Promise<string> {
-    // In production, use google-auth-library with a service account JSON
-    // For now, return a placeholder; set up proper auth before going live
-    return this.config.get('FIREBASE_ACCESS_TOKEN', '');
-  }
-
-  // Convenience methods used by other services
+  // Convenience helpers used by other services
   async notifyNewConsultation(doctorId: string, patientName: string, consultationId: string) {
     return this.sendPush(doctorId, {
       title: 'New Consultation Request',

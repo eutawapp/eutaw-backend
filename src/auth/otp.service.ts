@@ -36,9 +36,9 @@ export class OtpService {
       this.logger.log(`OTP sent to ${normalizedPhone}: ${response.data.message_id}`);
       return true;
     } catch (error) {
-  this.logger.error(`Failed to send OTP`, error.response?.data || error.message);
-  return false;
-}
+      this.logger.error(`Failed to send OTP to ${normalizedPhone}`, error.message);
+      return false;
+    }
   }
 
   // Normalize Nigerian phone numbers to +234 format

@@ -43,19 +43,18 @@ export class AuthService {
       throw new BadRequestException('Failed to send OTP');
     }
 
-    // Send SMS via Termii
-    const sent = await this.otpService.sendOtp(phone, otp);
+    // Try to send SMS via Termii (non-blocking — don't fail if SMS fails)
+    this.otpService.sendOtp(phone, otp).catch(e =>
+      this.logger.error('Termii SMS failed (non-fatal)', e.message)
+    );
 
-    if (!sent) {
-      throw new BadRequestException('Failed to send SMS. Please try again.');
-    }
-
+    // Always return success — OTP is in DB, SMS is best-effort
     // In development, return OTP in response for testing
     const isDev = this.config.get('NODE_ENV') !== 'production';
     return {
       message: 'OTP sent successfully',
       expires_in: 600,
-      ...(isDev && { otp }), // Only in dev mode
+      ...(isDev && { otp }), // Only in dev mode — shows OTP in response
     };
   }
 

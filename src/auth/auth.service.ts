@@ -33,6 +33,7 @@ export class AuthService {
       .from('otp_logs')
       .insert({
         phone,
+        otp,
         purpose,
         expires_at: expiresAt.toISOString(),
       });
@@ -82,10 +83,8 @@ export class AuthService {
       throw new BadRequestException('Too many failed attempts. Please request a new OTP.');
     }
 
-    // In production, compare against the actual OTP stored via Termii verification
-    // For now we use the stored OTP approach
-    // TODO: Integrate Termii's verify endpoint for production
-    const isValid = true; // Replace with actual OTP comparison
+    // Compare the submitted OTP against what was saved in the database
+    const isValid = otpLog.otp === otp;
 
     if (!isValid) {
       // Increment attempts

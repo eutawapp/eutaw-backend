@@ -1,4 +1,4 @@
-import { IsString, IsEnum, IsOptional, IsEmail, IsMobilePhone, IsDateString } from 'class-validator';
+import { IsString, IsEnum, IsOptional, IsEmail, IsMobilePhone, IsDateString, MinLength } from 'class-validator';
 
 export class SendOtpDto {
   @IsString()
@@ -46,4 +46,40 @@ export class RegisterDto {
 export class RefreshTokenDto {
   @IsString()
   refresh_token: string;
+}
+
+export class LoginEmailDto {
+  @IsEmail()
+  email: string;
+
+  @IsString()
+  @MinLength(8)
+  password: string;
+}
+
+export class RegisterEmailDto {
+  @IsEmail()
+  email: string;
+
+  @IsString()
+  @MinLength(8)
+  password: string;
+
+  @IsString()
+  full_name: string;
+
+  @IsEnum(['doctor', 'pharmacist', 'lab_tech', 'admin'])
+  role: string;
+
+  @IsOptional()
+  @IsString()
+  phone?: string;
+
+  @IsOptional()
+  @IsString()
+  specialty?: string;
+
+  @IsOptional()
+  @IsString()
+  license_number?: string;
 }

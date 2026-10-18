@@ -11,7 +11,7 @@ import {
   SendEmailOtpDto, VerifyEmailOtpDto, RegisterPatientDto,
   PatientSignUpDto, PatientSignInDto,
 } from './dto/auth.dto';
-import * as bcryptjs from 'bcryptjs';
+import * as bcrypt from 'bcryptjs';
 import { Resend } from 'resend';
 
 @Injectable()
@@ -25,7 +25,10 @@ export class AuthService {
     private config: ConfigService,
     private otpService: OtpService,
   ) {
-    this.resend = new Resend(this.config.get('RESEND_API_KEY'));
+    const resendKey = this.config.get<string>('RESEND_API_KEY');
+    // Use a dummy key if not configured — email sending will fail gracefully
+    // but the server will still start and auth/signup/login will work.
+    this.resend = new Resend(resendKey || 're_placeholder_key_not_configured');
   }
 
   // ── EMAIL OTP FLOW (patient app) ──────────────────────────────
@@ -153,12 +156,12 @@ export class AuthService {
     if (existing) throw new ConflictException('Email already registered.');
 
     // Create Supabase auth user
-  const { data: authData, error: authError } =
-  await this.supabase.admin.auth.admin.createUser({
-    email: lEmail, password, email_confirm: true,
-    // phone stored in our users table only — skip Supabase auth phone
-    user_metadata: { full_name, role: 'patient' },
-  });
+    const { data: authData, error: authError } = await this.supabase.admin.auth.admin.createUser({
+      email,
+      email_confirm: true,
+      password: Math.random().toString(36).slice(-16),
+      user_metadata: { full_name: dto.full_name, role: 'patient' },
+    });
 
     if (authError) throw new BadRequestException('Failed to create account.');
 
@@ -257,10 +260,11 @@ export class AuthService {
     const { data: existing } = await this.supabase.admin.from('users').select('id').eq('phone', phone).single();
     if (existing) throw new ConflictException('Phone number already registered.');
 
-   const { data: authData, error: authError } = await this.supabase.admin.auth.admin.createUser({
-  email: email.toLowerCase(), password, email_confirm: true,
-  phone: phone || undefined, user_metadata: { full_name, role },
-});
+    const { data: authData, error: authError } = await this.supabase.admin.auth.admin.createUser({
+      phone, phone_confirm: true, email: dto.email,
+      password: Math.random().toString(36).slice(-12),
+      user_metadata: { full_name: dto.full_name, role: dto.role },
+    });
     if (authError) throw new BadRequestException('Failed to create account.');
 
     const { data: user, error: profileError } = await this.supabase.admin.from('users').insert({
@@ -337,7 +341,8 @@ export class AuthService {
     const { data: authData, error: authError } =
       await this.supabase.admin.auth.admin.createUser({
         email: lEmail, password, email_confirm: true,
-        phone: phone || undefined,
+        // phone is stored in our users table only — Supabase auth requires
+        // E.164 format which we can't guarantee from the app, so skip it here.
         user_metadata: { full_name, role: 'patient' },
       });
     if (authError)

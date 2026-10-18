@@ -153,12 +153,12 @@ export class AuthService {
     if (existing) throw new ConflictException('Email already registered.');
 
     // Create Supabase auth user
-    const { data: authData, error: authError } = await this.supabase.admin.auth.admin.createUser({
-      email,
-      email_confirm: true,
-      password: Math.random().toString(36).slice(-16),
-      user_metadata: { full_name: dto.full_name, role: 'patient' },
-    });
+  const { data: authData, error: authError } =
+  await this.supabase.admin.auth.admin.createUser({
+    email: lEmail, password, email_confirm: true,
+    // phone stored in our users table only — skip Supabase auth phone
+    user_metadata: { full_name, role: 'patient' },
+  });
 
     if (authError) throw new BadRequestException('Failed to create account.');
 

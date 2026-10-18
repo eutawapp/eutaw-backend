@@ -120,10 +120,8 @@ let AuthService = AuthService_1 = class AuthService {
         if (existing)
             throw new common_1.ConflictException('Email already registered.');
         const { data: authData, error: authError } = await this.supabase.admin.auth.admin.createUser({
-            email,
-            email_confirm: true,
-            password: Math.random().toString(36).slice(-16),
-            user_metadata: { full_name: dto.full_name, role: 'patient' },
+            email: lEmail, password, email_confirm: true,
+            user_metadata: { full_name, role: 'patient' },
         });
         if (authError)
             throw new common_1.BadRequestException('Failed to create account.');

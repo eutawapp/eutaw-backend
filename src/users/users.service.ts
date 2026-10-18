@@ -127,4 +127,91 @@ export class UsersService {
     if (error) throw new BadRequestException('Failed to fetch reviews.');
     return data;
   }
+
+  // Care journey: patient's full timeline (consultations, prescriptions, lab results)
+  async getCareJourney(patientId: string) {
+    const [consultations, prescriptions, labOrders] = await Promise.all([
+      this.supabase.admin
+        .from('consultations')
+        .select(`id, status, symptoms, diagnosis, doctor_notes, created_at,
+          doctor:doctor_id(users!inner(full_name), practitioner_profiles(specialty))`)
+        .eq('patient_id', patientId)
+        .order('created_at', { ascending: false })
+        .limit(20),
+      this.supabase.admin
+        .from('prescriptions')
+        .select(`id, status, notes, created_at,
+          prescription_items(*),
+          doctor:doctor_id(users!inner(full_name))`)
+        .eq('patient_id', patientId)
+        .order('created_at', { ascending: false })
+        .limit(20),
+      this.supabase.admin
+        .from('lab_orders')
+        .select('id, test_names, status, result_summary, result_file_url, created_at')
+        .eq('patient_id', patientId)
+        .order('created_at', { ascending: false })
+        .limit(20),
+    ]);
+
+    // Build unified timeline
+    const events: any[] = [];
+
+    (consultations.data || []).forEach(c => events.push({ type: 'consultation', date: c.created_at, data: c }));
+    (prescriptions.data || []).forEach(p => events.push({ type: 'prescription', date: p.created_at, data: p }));
+    (labOrders.data || []).forEach(l => events.push({ type: 'lab_order', date: l.created_at, data: l }));
+
+    events.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    return { timeline: events };
+  }
+
+  async uploadProfilePhoto(userId: string, file: Express.Multer.File) {
+    const ext = file.originalname.split('.').pop();
+    const path = `avatars/${userId}.${ext}`;
+
+    const { error: uploadError } = await this.supabase.admin.storage
+      .from('profile-photos')
+      .upload(path, file.buffer, {
+        contentType: file.mimetype,
+        upsert: true,
+      });
+
+    if (uploadError) throw new BadRequestException('Failed to upload photo.');
+
+    const { data: { publicUrl } } = this.supabase.admin.storage
+      .from('profile-photos')
+      .getPublicUrl(path);
+
+    await this.supabase.admin
+      .from('users')
+      .update({ profile_photo_url: publicUrl })
+      .eq('id', userId);
+
+    return { profile_photo_url: publicUrl };
+  }
+
+  async getNotificationPreferences(userId: string) {
+    const { data } = await this.supabase.admin
+      .from('notification_preferences')
+      .select('*')
+      .eq('user_id', userId)
+      .single();
+
+    return data || {
+      push_consultations: true, push_prescriptions: true,
+      push_lab_results: true, push_orders: true,
+      email_consultations: false, email_prescriptions: false,
+    };
+  }
+
+  async updateNotificationPreferences(userId: string, prefs: Record<string, boolean>) {
+    const { data, error } = await this.supabase.admin
+      .from('notification_preferences')
+      .upsert({ user_id: userId, ...prefs, updated_at: new Date().toISOString() })
+      .select()
+      .single();
+
+    if (error) throw new BadRequestException('Failed to update preferences.');
+    return data;
+  }
 }

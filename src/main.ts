@@ -1,7 +1,6 @@
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import helmet from 'helmet';
 import { AppModule } from './app.module';
 
 async function bootstrap() {
@@ -10,23 +9,16 @@ async function bootstrap() {
   const configService = app.get(ConfigService);
   const port = configService.get<number>('PORT', 3000);
 
-  // Security
-  app.use(helmet());
 
   // CORS — allow Flutter web apps and admin dashboard
   app.enableCors({
-  origin: [
-    'http://localhost:3000',
-    'http://localhost:4200', 
-    'http://localhost:8080',
-    'http://localhost:52000',  // Flutter web default
-    /^http:\/\/localhost(:\d+)?$/,  // any localhost port
-    'https://yourproductiondomain.com',
-  ],
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'x-temp-token'],
-});
+    origin: [
+      'http://localhost:3000',
+      'http://localhost:5000',
+      configService.get('FRONTEND_URL'),
+    ].filter(Boolean),
+    credentials: true,
+  });
 
   // Global validation pipe — validates all DTOs automatically
   app.useGlobalPipes(

@@ -1,6 +1,8 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { ThrottlerModule } from '@nestjs/throttler';
+import { MulterModule } from '@nestjs/platform-express';
+import { memoryStorage } from 'multer';
 import { SupabaseModule } from './common/supabase/supabase.module';
 import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
@@ -10,25 +12,17 @@ import { LabModule } from './lab/lab.module';
 import { PaymentsModule } from './payments/payments.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { AdminModule } from './admin/admin.module';
+import { SubscriptionsModule } from './subscriptions/subscriptions.module';
+import { RefillsModule } from './refills/refills.module';
+import { SearchModule } from './search/search.module';
 import { HealthController } from './health/health.controller';
 
 @Module({
   imports: [
-    // Config — loads .env variables globally
-    ConfigModule.forRoot({
-      isGlobal: true,
-      envFilePath: '.env',
-    }),
-
-    // Rate limiting — 100 requests per 60 seconds per IP
-    ThrottlerModule.forRoot([
-      { name: 'default', ttl: 60000, limit: 100 },
-    ]),
-
-    // Supabase — global, exported to all modules
+    ConfigModule.forRoot({ isGlobal: true, envFilePath: '.env' }),
+    ThrottlerModule.forRoot([{ name: 'default', ttl: 60000, limit: 100 }]),
+    MulterModule.register({ storage: memoryStorage() }),
     SupabaseModule,
-
-    // Feature modules
     AuthModule,
     UsersModule,
     ConsultationsModule,
@@ -37,6 +31,9 @@ import { HealthController } from './health/health.controller';
     PaymentsModule,
     NotificationsModule,
     AdminModule,
+    SubscriptionsModule,
+    RefillsModule,
+    SearchModule,
   ],
   controllers: [HealthController],
 })

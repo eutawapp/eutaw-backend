@@ -24,7 +24,7 @@ export class OtpService {
     const message = `Your Eutaw Connect verification code is: ${otp}. Valid for 10 minutes. Do not share this code.`;
 
     try {
-      const response = await axios.post('https://v3.api.termii.com/api/sms/send', {
+      const response = await axios.post('https://api.ng.termii.com/api/sms/send', {
         to: normalizedPhone,
         from: senderId,
         sms: message,
@@ -46,18 +46,18 @@ export class OtpService {
     // Remove spaces and dashes
     phone = phone.replace(/[\s-]/g, '');
 
-    // Convert 0803... to 2348103... (Termii needs no + prefix)
+    // Convert 0803... to +2348103...
     if (phone.startsWith('0')) {
-      return '234' + phone.slice(1);
+      return '+234' + phone.slice(1);
     }
 
-    // Strip + if present
+    // Already has country code
     if (phone.startsWith('+234')) {
-      return phone.slice(1);
+      return phone;
     }
 
     if (phone.startsWith('234')) {
-      return phone;
+      return '+' + phone;
     }
 
     return phone;

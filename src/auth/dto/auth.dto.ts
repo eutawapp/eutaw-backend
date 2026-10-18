@@ -1,5 +1,47 @@
-import { IsString, IsEnum, IsOptional, IsEmail, IsMobilePhone, IsDateString, MinLength } from 'class-validator';
+import {
+  IsString, IsEnum, IsOptional, IsEmail,
+  IsDateString, MinLength, Length
+} from 'class-validator';
 
+// ── Email OTP (new patient flow) ─────────────────────────
+export class SendEmailOtpDto {
+  @IsEmail()
+  email: string;
+
+  @IsEnum(['signup', 'login'])
+  purpose: string;
+}
+
+export class VerifyEmailOtpDto {
+  @IsEmail()
+  email: string;
+
+  @IsString()
+  @Length(6, 6)
+  otp: string;
+
+  @IsEnum(['signup', 'login'])
+  purpose: string;
+}
+
+export class RegisterPatientDto {
+  @IsString()
+  full_name: string;
+
+  @IsOptional()
+  @IsString()
+  phone?: string;
+
+  @IsOptional()
+  @IsEnum(['male', 'female', 'other'])
+  gender?: string;
+
+  @IsOptional()
+  @IsDateString()
+  date_of_birth?: string;
+}
+
+// ── Phone OTP (legacy / professional flow) ───────────────
 export class SendOtpDto {
   @IsString()
   phone: string;
@@ -46,6 +88,31 @@ export class RegisterDto {
 export class RefreshTokenDto {
   @IsString()
   refresh_token: string;
+}
+
+// ── Patient email+password signup/login ──────────────────
+export class PatientSignUpDto {
+  @IsString()
+  full_name: string;
+
+  @IsEmail()
+  email: string;
+
+  @IsString()
+  @MinLength(8)
+  password: string;
+
+  @IsOptional()
+  @IsString()
+  phone?: string;
+}
+
+export class PatientSignInDto {
+  @IsEmail()
+  email: string;
+
+  @IsString()
+  password: string;
 }
 
 export class LoginEmailDto {

@@ -257,11 +257,10 @@ export class AuthService {
     const { data: existing } = await this.supabase.admin.from('users').select('id').eq('phone', phone).single();
     if (existing) throw new ConflictException('Phone number already registered.');
 
-    const { data: authData, error: authError } = await this.supabase.admin.auth.admin.createUser({
-      phone, phone_confirm: true, email: dto.email,
-      password: Math.random().toString(36).slice(-12),
-      user_metadata: { full_name: dto.full_name, role: dto.role },
-    });
+   const { data: authData, error: authError } = await this.supabase.admin.auth.admin.createUser({
+  email: email.toLowerCase(), password, email_confirm: true,
+  phone: phone || undefined, user_metadata: { full_name, role },
+});
     if (authError) throw new BadRequestException('Failed to create account.');
 
     const { data: user, error: profileError } = await this.supabase.admin.from('users').insert({

@@ -23,14 +23,23 @@ export class NotificationsService {
         return;
       }
 
-      const privateKey = this.config
-        .get<string>('FIREBASE_PRIVATE_KEY')
-        ?.replace(/\\n/g, '\n'); // Vercel escapes newlines
+      const projectId = this.config.get<string>('FIREBASE_PROJECT_ID');
+      const clientEmail = this.config.get<string>('FIREBASE_CLIENT_EMAIL');
+      const privateKeyRaw = this.config.get<string>('FIREBASE_PRIVATE_KEY');
+
+      // Skip Firebase init if credentials are missing — push notifications
+      // will be silently skipped until credentials are configured in Vercel.
+      if (!projectId || !clientEmail || !privateKeyRaw) {
+        this.logger.warn('Firebase credentials not configured — push notifications disabled');
+        return;
+      }
+
+      const privateKey = privateKeyRaw.replace(/\\n/g, '\n');
 
       this.firebaseApp = admin.initializeApp({
         credential: admin.credential.cert({
-          projectId: this.config.get<string>('FIREBASE_PROJECT_ID'),
-          clientEmail: this.config.get<string>('FIREBASE_CLIENT_EMAIL'),
+          projectId,
+          clientEmail,
           privateKey,
         }),
       });

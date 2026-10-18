@@ -10,13 +10,9 @@ async function bootstrap() {
   const port = configService.get<number>('PORT', 3000);
 
 
-  // CORS — allow Flutter web apps and admin dashboard
+  // CORS — allow all origins (Flutter web runs on varying localhost ports)
   app.enableCors({
-    origin: [
-      'http://localhost:3000',
-      'http://localhost:5000',
-      configService.get('FRONTEND_URL'),
-    ].filter(Boolean),
+    origin: true,        // reflect the request origin — safe for an API that uses JWT auth
     credentials: true,
   });
 
@@ -29,7 +25,8 @@ async function bootstrap() {
     }),
   );
 
-  // Global prefix for all routes
+  // Global prefix — Vercel routes all traffic to this handler so
+  // the prefix must match what the Flutter app sends (/api/v1/...)
   app.setGlobalPrefix('api/v1');
 
   await app.listen(port);

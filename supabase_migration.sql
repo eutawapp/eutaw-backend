@@ -341,32 +341,41 @@ ALTER TABLE prescriptions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE pharmacy_orders ENABLE ROW LEVEL SECURITY;
 ALTER TABLE lab_orders ENABLE ROW LEVEL SECURITY;
 
--- Users can read their own row
-CREATE POLICY IF NOT EXISTS "users_own_row" ON users
+-- Drop policies first so re-running is safe
+DROP POLICY IF EXISTS "users_own_row"          ON users;
+DROP POLICY IF EXISTS "patient_own_profile"    ON patient_profiles;
+DROP POLICY IF EXISTS "consultation_participant" ON consultations;
+DROP POLICY IF EXISTS "own_notifications"      ON notifications;
+DROP POLICY IF EXISTS "prescription_access"    ON prescriptions;
+DROP POLICY IF EXISTS "pharmacy_order_access"  ON pharmacy_orders;
+DROP POLICY IF EXISTS "lab_order_access"       ON lab_orders;
+
+-- Users can read/write their own row
+CREATE POLICY "users_own_row" ON users
   FOR ALL USING (auth.uid() = id);
 
 -- Patients can read/write their own patient_profiles
-CREATE POLICY IF NOT EXISTS "patient_own_profile" ON patient_profiles
+CREATE POLICY "patient_own_profile" ON patient_profiles
   FOR ALL USING (auth.uid() = user_id);
 
 -- Patients see their own consultations; doctors see theirs
-CREATE POLICY IF NOT EXISTS "consultation_participant" ON consultations
+CREATE POLICY "consultation_participant" ON consultations
   FOR SELECT USING (auth.uid() = patient_id OR auth.uid() = doctor_id);
 
 -- Notifications: own only
-CREATE POLICY IF NOT EXISTS "own_notifications" ON notifications
+CREATE POLICY "own_notifications" ON notifications
   FOR ALL USING (auth.uid() = user_id);
 
 -- Prescriptions: patient and doctor can see
-CREATE POLICY IF NOT EXISTS "prescription_access" ON prescriptions
+CREATE POLICY "prescription_access" ON prescriptions
   FOR SELECT USING (auth.uid() = patient_id OR auth.uid() = doctor_id);
 
 -- Pharmacy orders: patient and pharmacist
-CREATE POLICY IF NOT EXISTS "pharmacy_order_access" ON pharmacy_orders
+CREATE POLICY "pharmacy_order_access" ON pharmacy_orders
   FOR SELECT USING (auth.uid() = patient_id OR auth.uid() = pharmacist_id);
 
 -- Lab orders: patient and lab tech
-CREATE POLICY IF NOT EXISTS "lab_order_access" ON lab_orders
+CREATE POLICY "lab_order_access" ON lab_orders
   FOR SELECT USING (auth.uid() = patient_id OR auth.uid() = lab_tech_id);
 
 -- ── STORAGE BUCKET ────────────────────────────────────────────

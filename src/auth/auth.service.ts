@@ -11,7 +11,7 @@ import {
   SendEmailOtpDto, VerifyEmailOtpDto, RegisterPatientDto,
   PatientSignUpDto, PatientSignInDto,
 } from './dto/auth.dto';
-import * as bcrypt from 'bcrypt';
+import * as bcryptjs from 'bcryptjs';
 import { Resend } from 'resend';
 
 @Injectable()

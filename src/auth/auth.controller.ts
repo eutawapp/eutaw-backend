@@ -4,7 +4,7 @@ import {
   SendOtpDto, VerifyOtpDto, RegisterDto, RefreshTokenDto,
   LoginEmailDto, RegisterEmailDto,
   SendEmailOtpDto, VerifyEmailOtpDto, RegisterPatientDto,
-  PatientSignUpDto, PatientSignInDto,
+  PatientSignUpDto, PatientSignInDto, AppleSignInDto,
 } from './dto/auth.dto';
 
 @Controller('auth')
@@ -88,4 +88,11 @@ export class AuthController {
   patientSignIn(@Body() dto: PatientSignInDto) {
     return this.authService.patientSignIn(dto);
   }
+  // ── APPLE SIGN IN ───────────────────────────────────────────
+  // POST /api/v1/auth/apple
+  @Post('apple')
+  appleSignIn(@Body() dto: AppleSignInDto) {
+    return this.authService.appleSignIn(dto);
+  }
+
 }

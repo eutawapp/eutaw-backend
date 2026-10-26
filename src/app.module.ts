@@ -15,6 +15,8 @@ import { AdminModule } from './admin/admin.module';
 import { SubscriptionsModule } from './subscriptions/subscriptions.module';
 import { RefillsModule } from './refills/refills.module';
 import { SearchModule } from './search/search.module';
+import { PatientsModule } from './patients/patients.module';
+import { StoreModule } from './store/store.module';
 import { HealthController } from './health/health.controller';
 
 @Module({
@@ -34,6 +36,8 @@ import { HealthController } from './health/health.controller';
     SubscriptionsModule,
     RefillsModule,
     SearchModule,
+    PatientsModule,
+    StoreModule,
   ],
   controllers: [HealthController],
 })

@@ -150,3 +150,21 @@ export class RegisterEmailDto {
   @IsString()
   license_number?: string;
 }
+
+// ── Apple Sign In ─────────────────────────────────────────
+export class AppleSignInDto {
+  @IsString()
+  identity_token: string;  // JWT from Apple
+
+  @IsOptional()
+  @IsString()
+  full_name?: string;      // Only sent on first sign-in by Apple
+
+  @IsOptional()
+  @IsString()
+  given_name?: string;
+
+  @IsOptional()
+  @IsString()
+  family_name?: string;
+}

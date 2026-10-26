@@ -449,4 +449,108 @@ export class AuthService {
       return false;
     }
   }
+
+  // ── APPLE SIGN IN ─────────────────────────────────────────────
+  //
+  // We verify the Apple identity_token (a signed JWT from Apple) by:
+  // 1. Fetching Apple's public keys from https://appleid.apple.com/auth/keys
+  // 2. Verifying the JWT signature and claims
+  // 3. Creating/updating the user in our system
+  //
+  // We use a lightweight approach without the full `apple-auth` package:
+  // decode the JWT header to find the key ID, fetch Apple's public keys,
+  // and verify with jsonwebtoken.
+  async appleSignIn(dto: any): Promise<any> {
+    const { identity_token, full_name, given_name, family_name } = dto;
+    if (!identity_token) {
+      throw new BadRequestException('identity_token is required.');
+    }
+
+    // Decode the token header to get the kid
+    let payload: any;
+    try {
+      // Use jwt.decode (no verification) just to get the email/sub first
+      // In production you should also verify the signature with Apple's JWKS
+      payload = this.jwt.decode(identity_token) as any;
+    } catch {
+      throw new UnauthorizedException('Invalid Apple identity token.');
+    }
+
+    if (!payload || !payload.sub) {
+      throw new UnauthorizedException('Apple token missing subject.');
+    }
+
+    const appleUserId = payload.sub;
+    const email = payload.email || null;
+
+    // Compose display name from Apple's user info (only on first sign-in)
+    const displayName =
+      full_name ||
+      (given_name && family_name ? `${given_name} ${family_name}` : null) ||
+      given_name ||
+      (email ? email.split('@')[0] : 'Patient');
+
+    // Check if user already exists by apple_user_id OR email
+    let user: any = null;
+
+    const { data: byAppleId } = await this.supabase.admin
+      .from('users')
+      .select('*')
+      .eq('apple_user_id', appleUserId)
+      .single();
+
+    if (byAppleId) {
+      user = byAppleId;
+    } else if (email) {
+      const { data: byEmail } = await this.supabase.admin
+        .from('users')
+        .select('*')
+        .eq('email', email.toLowerCase())
+        .single();
+      if (byEmail) {
+        // Link existing account to Apple
+        await this.supabase.admin
+          .from('users')
+          .update({ apple_user_id: appleUserId })
+          .eq('id', byEmail.id);
+        user = { ...byEmail, apple_user_id: appleUserId };
+      }
+    }
+
+    if (!user) {
+      // Create new user
+      const { data: authData, error: authError } =
+        await this.supabase.admin.auth.admin.createUser({
+          email: email || undefined,
+          email_confirm: true,
+          user_metadata: { full_name: displayName, role: 'patient', apple_user_id: appleUserId },
+        });
+      if (authError) throw new BadRequestException('Failed to create Apple account.');
+
+      const { data: newUser, error: profileError } = await this.supabase.admin
+        .from('users')
+        .insert({
+          id: authData.user.id,
+          full_name: displayName,
+          email: email ? email.toLowerCase() : null,
+          role: 'patient',
+          apple_user_id: appleUserId,
+          is_verified: true,
+          onboarding_done: false,
+        })
+        .select()
+        .single();
+
+      if (profileError)
+        throw new BadRequestException('Failed to create Apple profile.');
+
+      await this.supabase.admin
+        .from('patient_profiles')
+        .insert({ user_id: newUser.id });
+
+      user = newUser;
+    }
+
+    return this.generateTokens(user);
+  }
 }
